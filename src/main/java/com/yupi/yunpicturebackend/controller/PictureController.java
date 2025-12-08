@@ -65,7 +65,7 @@ public class PictureController {
      * @param request
      * @return
      */
-    @PostMapping("/upload")
+    @PostMapping("/upload/url")
     public BaseResponse<PictureVO> uploadPictureByUrl(
             @RequestBody PictureUploadRequest pictureUploadRequest,
             HttpServletRequest request) {
