@@ -6,7 +6,7 @@ import com.yupi.yunpicturebackend.manager.websocket.model.PictureEditRequestMess
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.WebSocketSession;
-import com.yupi.yunpicturebackend.model.entity.User;
+import com.yupi.yupicture.domain.user.entity.User;
 import javax.annotation.PreDestroy;
 import javax.annotation.Resource;
 

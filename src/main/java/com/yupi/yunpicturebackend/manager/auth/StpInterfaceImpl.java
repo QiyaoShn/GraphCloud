@@ -10,19 +10,19 @@ import cn.hutool.extra.servlet.ServletUtil;
 import cn.hutool.http.ContentType;
 import cn.hutool.http.Header;
 import cn.hutool.json.JSONUtil;
-import com.yupi.yunpicturebackend.exception.BusinessException;
-import com.yupi.yunpicturebackend.exception.ErrorCode;
+import com.yupi.yupicture.infrastructure.exception.BusinessException;
+import com.yupi.yupicture.infrastructure.exception.ErrorCode;
 import com.yupi.yunpicturebackend.manager.auth.model.SpaceUserPermissionConstant;
-import com.yupi.yunpicturebackend.model.entity.Picture;
-import com.yupi.yunpicturebackend.model.entity.Space;
-import com.yupi.yunpicturebackend.model.entity.SpaceUser;
-import com.yupi.yunpicturebackend.model.entity.User;
-import com.yupi.yunpicturebackend.model.enums.SpaceRoleEnum;
-import com.yupi.yunpicturebackend.model.enums.SpaceTypeEnum;
-import com.yupi.yunpicturebackend.service.PictureService;
-import com.yupi.yunpicturebackend.service.SpaceService;
-import com.yupi.yunpicturebackend.service.SpaceUserService;
-import com.yupi.yunpicturebackend.service.UserService;
+import com.yupi.yupicture.domain.picture.entity.Picture;
+import com.yupi.yupicture.domain.space.entity.Space;
+import com.yupi.yupicture.domain.space.entity.SpaceUser;
+import com.yupi.yupicture.domain.user.entity.User;
+import com.yupi.yupicture.domain.space.valueobject.SpaceRoleEnum;
+import com.yupi.yupicture.domain.space.valueobject.SpaceTypeEnum;
+import com.yupi.yupicture.application.service.PictureApplicationervice;
+import com.yupi.yupicture.application.service.SpaceApplicationService;
+import com.yupi.yupicture.application.service.SpaceUserApplicationService;
+import com.yupi.yupicture.application.service.UserApplicationService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
@@ -31,7 +31,7 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import java.util.*;
-import static com.yupi.yunpicturebackend.constant.UserConstant.USER_LOGIN_STATE;
+import static com.yupi.yupicture.domain.user.constant.UserConstant.USER_LOGIN_STATE;
 
 /**
  * 自定义权限加载接口实现类
@@ -44,19 +44,19 @@ public class StpInterfaceImpl implements StpInterface {
     private String contextPath;
 
     @Resource
-    private UserService userService;
+    private UserApplicationService userApplicationService;
 
     @Resource
-    private SpaceService spaceService;
+    private SpaceApplicationService spaceApplicationService;
 
     @Resource
-    private PictureService pictureService;
+    private PictureApplicationervice pictureApplicationervice;
 
     @Resource
     private SpaceUserAuthManager spaceUserAuthManager;
 
     @Resource
-    private SpaceUserService spaceUserService;
+    private SpaceUserApplicationService spaceUserApplicationService;
 
     /**
      * 返回一个账号所拥有的权限码集合
@@ -93,12 +93,12 @@ public class StpInterfaceImpl implements StpInterface {
         // 如果有 spaceUserId，必然是团队空间，通过数据库查询 SpaceUser 对象
         Long spaceUserId = authContext.getSpaceUserId();
         if (spaceUserId != null) {
-            spaceUser = spaceUserService.getById(spaceUserId);
+            spaceUser = spaceUserApplicationService.getById(spaceUserId);
             if (spaceUser == null) {
                 throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "未找到空间用户信息");
             }
             // 取出当前登录用户对应的 spaceUser
-            SpaceUser loginSpaceUser = spaceUserService.lambdaQuery()
+            SpaceUser loginSpaceUser = spaceUserApplicationService.lambdaQuery()
                     .eq(SpaceUser::getSpaceId, spaceUser.getSpaceId())
                     .eq(SpaceUser::getUserId, userId)
                     .one();
@@ -117,7 +117,7 @@ public class StpInterfaceImpl implements StpInterface {
             if (pictureId == null) {
                 return ADMIN_PERMISSIONS;
             }
-            Picture picture = pictureService.lambdaQuery()
+            Picture picture = pictureApplicationervice.lambdaQuery()
                     .eq(Picture::getId, pictureId)
                     .select(Picture::getId, Picture::getSpaceId, Picture::getUserId)
                     .one();
@@ -127,7 +127,7 @@ public class StpInterfaceImpl implements StpInterface {
             spaceId = picture.getSpaceId();
             // 公共图库，仅本人或管理员可操作
             if (spaceId == null) {
-                if (picture.getUserId().equals(userId) || userService.isAdmin(loginUser)) {
+                if (picture.getUserId().equals(userId) || loginUser.isAdmin()) {
                     return ADMIN_PERMISSIONS;
                 } else {
                     // 不是自己的图片，仅可查看
@@ -136,21 +136,21 @@ public class StpInterfaceImpl implements StpInterface {
             }
         }
         // 获取 Space 对象
-        Space space = spaceService.getById(spaceId);
+        Space space = spaceApplicationService.getById(spaceId);
         if (space == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "未找到空间信息");
         }
         // 根据 Space 类型判断权限
         if (space.getSpaceType() == SpaceTypeEnum.PRIVATE.getValue()) {
             // 私有空间，仅本人或管理员有权限
-            if (space.getUserId().equals(userId) || userService.isAdmin(loginUser)) {
+            if (space.getUserId().equals(userId) || loginUser.isAdmin()) {
                 return ADMIN_PERMISSIONS;
             } else {
                 return new ArrayList<>();
             }
         } else {
             // 团队空间，查询 SpaceUser 并获取角色和权限
-            spaceUser = spaceUserService.lambdaQuery()
+            spaceUser = spaceUserApplicationService.lambdaQuery()
                     .eq(SpaceUser::getSpaceId, spaceId)
                     .eq(SpaceUser::getUserId, userId)
                     .one();
